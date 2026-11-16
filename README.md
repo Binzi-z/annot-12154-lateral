@@ -16,10 +16,21 @@ python -m pytest tests -q
 python detector/detector.py logs/auth.log findings.json
 ```
 
-## 基线状态
+## 检测逻辑
 
-`detector/detector.py` 对每条失败登录和每个请求各产出一条告警，不做任何关联：
-不看失败之后有没有成功登录，不看同账号是否跨主机，也不看请求路径是否敏感。
+`detector/detector.py` 做关联检测，输出 `findings` + `needs_review`：
+
+- `lateral_movement`：同一账号在 10 分钟内从**两个都从未用过的源 IP** 登录，
+  且随后 15 分钟内伴随提权（sudo 至 root）或 root 从同一新 IP 登录。
+  正常轮换发生在已知跳板机集合内、且无后续提权，被抑制。
+- `privilege_escalation`：sudo 起 root shell 后 5 分钟内，root 从该账号
+  此前会话使用过的同一源 IP 登录。
+- `needs_review`：日志本身无法判定的相似流量（少量失败后成功、被拒的
+  敏感路径探测），每条写明缺哪类资产信息（CMDB、VPN/DHCP 租约、
+  扫描器白名单等）。
+
+每条 finding 含 `rule`、`first_seen`/`last_seen` 时间窗口、`entities`
+（users/ips/hosts）和按序的 `evidence` 事件链（带行号）。
 
 ## 标注事件
 
